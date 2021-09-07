@@ -1,15 +1,15 @@
-import torch as nn
-from torch.utils.data import dataset, dataloader
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
 from torchvision import datasets
-from torchvision.transforms import ToTensor
-from PIL import open as read_file
-import os
-import pandas as pd
+from torchvision.transforms import ToTensor,Lambda
+from collections.abc import Iterable
 training_data = datasets.FashionMNIST(
     root="data",
     train=True,
     download=True,
     transform=ToTensor(),
+    target_transform=Lambda(lambda y: nn.zeros(64, 10, dtype=nn.float).scatter(0, nn.tenser(y), value=1))
 )
 
 testing_data = datasets.FashionMNIST(
@@ -17,7 +17,27 @@ testing_data = datasets.FashionMNIST(
     train=False,
     download=True,
     transform=ToTensor(),
+    target_transform=Lambda(lambda y: nn.zeros(64, 10, dtype=nn.float).scatter(0, nn.tenser(y), value=1))
 )
+
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super(NeuralNetwork, self).__init__()
+        self.flatten = nn.Flatten()
+        self.linear_stack = nn.Sequential(
+            nn.Linear(28*28, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 10),
+        )
+
+    def forward(self, x):
+        x = self.flatten(x)
+        logits = self.linear_stack(x)
+        preds = nn.softmax(dim=1)(logits)
+        y_preds = preds.argmax(1)
+        return y_preds
 
 '''
 class custom_image(dataset):
@@ -40,7 +60,13 @@ class custom_image(dataset):
         return image, label
 
 '''
-training_dataloader = dataloader(training_data, batchsize=64, shuffle=True)
-testing_dataloader = dataloader(testing_data, batchsize=64, shuffle=True)
-print(training_data.__len__())
-print(testing_data)
+training_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+testing_dataloader = DataLoader(testing_data, batch_size=64, shuffle=True)
+#train_features, train_labels = next(iter(training_dataloader))
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model = NeuralNetwork().to(device)
+
+
+#loss = nn.functional.binary_cross_entropy_with_logits()
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-2, momentum=0.9)
+
